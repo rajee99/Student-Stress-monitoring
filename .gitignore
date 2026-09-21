@@ -1,0 +1,24 @@
+# Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+*.ipynb
+
+# OS generated files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Logs
+*.log
