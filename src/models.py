@@ -1,5 +1,6 @@
 """
 Model Registry, Adaptive Preconditioning, and Cross-Validation Engine.
+Includes strict regularization to prevent training set memorization/overfitting.
 """
 
 from typing import Dict, Any, Tuple
@@ -41,37 +42,126 @@ except ImportError:
 
 def build_candidate_classifier_suite(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate a diverse ensemble of linear, kernel, tree-based, and boosting classifiers.
+    Instantiate a strictly regularized suite of estimators with shallow depth,
+    conservative leaf minimums, subsampling, and penalties to prevent memorization.
     """
     classifier_portfolio = {
-        'Random Forest': RandomForestClassifier(n_estimators=300, random_state=random_seed),
-        'Extra Trees': ExtraTreesClassifier(n_estimators=300, random_state=random_seed),
-        'Gradient Boosting': GradientBoostingClassifier(n_estimators=200, random_state=random_seed),
-        'Hist Gradient Boosting': HistGradientBoostingClassifier(random_state=random_seed, max_iter=200),
-        'AdaBoost': AdaBoostClassifier(n_estimators=200, random_state=random_seed),
-        'Bagging Ensemble': BaggingClassifier(n_estimators=100, random_state=random_seed),
-        'SVM (RBF Kernel)': SVC(kernel='rbf', random_state=random_seed, probability=True),
-        'SVM (Poly Kernel)': SVC(kernel='poly', random_state=random_seed, probability=True),
-        'Linear SVM': LinearSVC(random_state=random_seed, max_iter=2000, dual='auto'),
-        'Logistic Regression': LogisticRegression(random_state=random_seed, max_iter=2000),
-        'Ridge Classifier': RidgeClassifier(random_state=random_seed),
-        'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=7),
-        'Distance-Weighted KNN': KNeighborsClassifier(n_neighbors=7, weights='distance'),
-        'Gaussian Naive Bayes': GaussianNB(),
-        'Decision Tree': DecisionTreeClassifier(random_state=random_seed, max_depth=10),
+        'Random Forest (Reg)': RandomForestClassifier(
+            n_estimators=100,
+            max_depth=5,
+            min_samples_split=16,
+            min_samples_leaf=8,
+            max_features='sqrt',
+            random_state=random_seed
+        ),
+        'Extra Trees (Reg)': ExtraTreesClassifier(
+            n_estimators=100,
+            max_depth=5,
+            min_samples_split=16,
+            min_samples_leaf=8,
+            max_features='sqrt',
+            random_state=random_seed
+        ),
+        'Gradient Boosting (Reg)': GradientBoostingClassifier(
+            n_estimators=50,
+            learning_rate=0.05,
+            max_depth=3,
+            min_samples_split=16,
+            min_samples_leaf=8,
+            subsample=0.75,
+            random_state=random_seed
+        ),
+        'Hist Gradient Boosting (Reg)': HistGradientBoostingClassifier(
+            max_iter=50,
+            learning_rate=0.05,
+            max_depth=3,
+            min_samples_leaf=12,
+            l2_regularization=5.0,
+            random_state=random_seed
+        ),
+        'AdaBoost (Reg)': AdaBoostClassifier(
+            n_estimators=50,
+            learning_rate=0.2,
+            random_state=random_seed
+        ),
+        'Bagging Ensemble (Reg)': BaggingClassifier(
+            estimator=DecisionTreeClassifier(max_depth=4, min_samples_leaf=6),
+            n_estimators=50,
+            max_samples=0.75,
+            max_features=0.80,
+            random_state=random_seed
+        ),
+        'SVM (RBF Kernel)': SVC(
+            C=0.7,
+            kernel='rbf',
+            random_state=random_seed,
+            probability=True
+        ),
+        'SVM (Poly Kernel)': SVC(
+            C=0.5,
+            degree=2,
+            kernel='poly',
+            random_state=random_seed,
+            probability=True
+        ),
+        'Linear SVM': LinearSVC(
+            C=0.5,
+            random_state=random_seed,
+            max_iter=2000,
+            dual='auto'
+        ),
+        'Logistic Regression (L2)': LogisticRegression(
+            C=0.5,
+            random_state=random_seed,
+            max_iter=2000
+        ),
+        'Ridge Classifier': RidgeClassifier(
+            alpha=2.0,
+            random_state=random_seed
+        ),
+        'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=11),
+        'Distance-Weighted KNN': KNeighborsClassifier(n_neighbors=11, weights='distance'),
+        'Gaussian Naive Bayes': GaussianNB(var_smoothing=1e-7),
+        'Decision Tree (Pruned)': DecisionTreeClassifier(
+            max_depth=4,
+            min_samples_split=16,
+            min_samples_leaf=8,
+            random_state=random_seed
+        ),
         'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
-        'MLP Deep Neural Net': MLPClassifier(
-            hidden_layer_sizes=(200, 100, 50), random_state=random_seed, max_iter=1000
+        'MLP Deep Neural Net (L2)': MLPClassifier(
+            hidden_layer_sizes=(64, 32),
+            alpha=0.1,
+            early_stopping=True,
+            validation_fraction=0.15,
+            random_state=random_seed,
+            max_iter=500
         )
     }
 
     if HAS_XGB:
-        classifier_portfolio['XGBoost'] = xgb.XGBClassifier(
-            n_estimators=200, random_state=random_seed, eval_metric='mlogloss', verbosity=0
+        classifier_portfolio['XGBoost (Reg)'] = xgb.XGBClassifier(
+            n_estimators=50,
+            learning_rate=0.05,
+            max_depth=3,
+            min_child_weight=6,
+            reg_lambda=5.0,
+            subsample=0.75,
+            random_state=random_seed,
+            eval_metric='mlogloss',
+            verbosity=0
         )
     if HAS_LGB:
-        classifier_portfolio['LightGBM'] = lgb.LGBMClassifier(
-            n_estimators=200, random_state=random_seed, verbose=-1
+        classifier_portfolio['LightGBM (Reg)'] = lgb.LGBMClassifier(
+            n_estimators=50,
+            learning_rate=0.05,
+            max_depth=3,
+            num_leaves=8,
+            min_child_samples=16,
+            reg_lambda=5.0,
+            subsample=0.75,
+            random_state=random_seed,
+            verbose=-1
         )
 
     return classifier_portfolio
@@ -97,7 +187,9 @@ def find_optimal_feature_scaler(
 
     for scaler_name, scaler_instance in candidate_scalers.items():
         scaled_matrix = scaler_instance.fit_transform(training_features)
-        benchmark_probe = RandomForestClassifier(n_estimators=100, random_state=random_seed)
+        benchmark_probe = RandomForestClassifier(
+            n_estimators=80, max_depth=5, min_samples_leaf=8, random_state=random_seed
+        )
         cv_accuracy = cross_val_score(
             benchmark_probe, scaled_matrix, training_labels, cv=cv_splitter, scoring='accuracy'
         ).mean()
@@ -120,7 +212,7 @@ class ModelBenchmarkingService:
         k_folds: int = 5
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Fit each candidate model, evaluate k-fold cross validation on training data,
+        Fit each regularized candidate model, evaluate k-fold cross validation on training data,
         and assess training accuracy, validation accuracy, and holdout test accuracy.
         """
         portfolio = build_candidate_classifier_suite(random_seed=random_seed)
