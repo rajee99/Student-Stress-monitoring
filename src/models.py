@@ -121,7 +121,7 @@ class ModelBenchmarkingService:
     ) -> Dict[str, Dict[str, Any]]:
         """
         Fit each candidate model, evaluate k-fold cross validation on training data,
-        and assess generalization accuracy on the held-out test split.
+        and assess training accuracy, validation accuracy, and holdout test accuracy.
         """
         portfolio = build_candidate_classifier_suite(random_seed=random_seed)
         cv_strategy = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
@@ -129,27 +129,38 @@ class ModelBenchmarkingService:
 
         for model_name, estimator in portfolio.items():
             try:
+                # 1. Validation Accuracy via K-Fold Cross Validation
                 cv_scores = cross_val_score(
                     estimator, scaled_train_x, train_y, cv=cv_strategy, scoring='accuracy'
                 )
+                validation_accuracy = float(cv_scores.mean())
+                validation_std = float(cv_scores.std())
+
+                # 2. Fit model and compute Training Accuracy
                 estimator.fit(scaled_train_x, train_y)
-                predicted_labels = estimator.predict(scaled_test_x)
+                train_predictions = estimator.predict(scaled_train_x)
+                train_accuracy = float(accuracy_score(train_y, train_predictions))
+
+                # 3. Predict on Held-Out Test Data
+                test_predictions = estimator.predict(scaled_test_x)
+                test_accuracy = float(accuracy_score(test_y, test_predictions))
+                test_f1 = float(f1_score(test_y, test_predictions, average='weighted'))
 
                 predicted_probabilities = (
                     estimator.predict_proba(scaled_test_x)
                     if hasattr(estimator, 'predict_proba') else None
                 )
 
-                test_accuracy = accuracy_score(test_y, predicted_labels)
-                test_f1 = f1_score(test_y, predicted_labels, average='weighted')
-
                 benchmark_summary[model_name] = {
                     'fitted_estimator': estimator,
-                    'cross_val_mean': float(cv_scores.mean()),
-                    'cross_val_std': float(cv_scores.std()),
-                    'holdout_accuracy': float(test_accuracy),
-                    'holdout_f1': float(test_f1),
-                    'test_predictions': predicted_labels,
+                    'train_accuracy': train_accuracy,
+                    'validation_accuracy': validation_accuracy,
+                    'validation_std': validation_std,
+                    'cross_val_mean': validation_accuracy,
+                    'cross_val_std': validation_std,
+                    'holdout_accuracy': test_accuracy,
+                    'holdout_f1': test_f1,
+                    'test_predictions': test_predictions,
                     'test_probabilities': predicted_probabilities
                 }
             except Exception as failure_reason:

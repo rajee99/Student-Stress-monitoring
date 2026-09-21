@@ -22,11 +22,29 @@ from src.evaluate import AssessmentDiagnostics
 from src.visualize import DiagnosticPlotter
 
 
+def print_performance_table(benchmark_dict: dict, dataset_name: str) -> None:
+    """Print a clean comparative summary table for all models."""
+    print(f"\n{'=' * 88}")
+    print(f"MODEL BENCHMARK SUMMARY TABLE: {dataset_name.upper()}")
+    print(f"{'=' * 88}")
+    print(f"{'Model Name':<28} {'Train Acc':<12} {'Val Acc (5-Fold CV)':<22} {'Test Acc':<12} {'Test F1':<10}")
+    print("-" * 88)
+    for model_name, data in benchmark_dict.items():
+        print(
+            f"{model_name:<28} "
+            f"{data['train_accuracy']*100:>8.2f}%   "
+            f"{data['validation_accuracy']*100:>7.2f}% (+/- {data['validation_std']*200:>4.2f}%)   "
+            f"{data['holdout_accuracy']*100:>7.2f}%   "
+            f"{data['holdout_f1']:>8.4f}"
+        )
+    print("-" * 88)
+
+
 def execute_stress_analysis_pipeline() -> None:
     """Execute the end-to-end model training, validation, and diagnostics pipeline."""
-    print("=" * 80)
+    print("=" * 88)
     print("STUDENT MENTAL HEALTH & STRESS PREDICTION PIPELINE")
-    print("=" * 80)
+    print("=" * 88)
 
     # Step 1: Initialize storage destinations
     initialize_output_directories()
@@ -97,26 +115,32 @@ def execute_stress_analysis_pipeline() -> None:
         k_folds=app_config.STRATIFIED_K_FOLDS
     )
 
+    # Print clean benchmark tables
+    print_performance_table(benchmark_d1, "Dataset 1 - Stress Level")
+    print_performance_table(benchmark_d2, "Dataset 2 - Stress Type")
+
     # Step 6: Identify Champions and Diagnostic Evaluation
     print("\n[Phase 5] Champion Model Selection & Metrics Report...")
     champion_name_1, champion_data_1 = AssessmentDiagnostics.pick_champion_model(benchmark_d1)
     champion_name_2, champion_data_2 = AssessmentDiagnostics.pick_champion_model(benchmark_d2)
 
-    print("-" * 80)
-    print(f"DATASET 1 CHAMPION: {champion_name_1}")
-    print(f" - 5-Fold CV Accuracy: {champion_data_1['cross_val_mean']:.4f} (+/- {champion_data_1['cross_val_std']*2:.4f})")
-    print(f" - Holdout Accuracy:   {champion_data_1['holdout_accuracy']:.4f}")
-    print(f" - Weighted F1 Score:  {champion_data_1['holdout_f1']:.4f}")
+    print("=" * 88)
+    print(f"[CHAMPION MODEL] DATASET 1: {champion_name_1}")
+    print(f"   - Train Accuracy:      {champion_data_1['train_accuracy']*100:.2f}%")
+    print(f"   - Validation Accuracy: {champion_data_1['validation_accuracy']*100:.2f}% (+/- {champion_data_1['validation_std']*200:.2f}%)")
+    print(f"   - Test Accuracy:       {champion_data_1['holdout_accuracy']*100:.2f}%")
+    print(f"   - Test F1 Score:       {champion_data_1['holdout_f1']:.4f}")
     print("\nDetailed Classification Breakdown:")
     print(AssessmentDiagnostics.build_classification_text_report(
         test_y1.values, champion_data_1['test_predictions'], category_names=['Level 0', 'Level 1', 'Level 2']
     ))
 
-    print("-" * 80)
-    print(f"DATASET 2 CHAMPION: {champion_name_2}")
-    print(f" - 5-Fold CV Accuracy: {champion_data_2['cross_val_mean']:.4f} (+/- {champion_data_2['cross_val_std']*2:.4f})")
-    print(f" - Holdout Accuracy:   {champion_data_2['holdout_accuracy']:.4f}")
-    print(f" - Weighted F1 Score:  {champion_data_2['holdout_f1']:.4f}")
+    print("=" * 88)
+    print(f"[CHAMPION MODEL] DATASET 2: {champion_name_2}")
+    print(f"   - Train Accuracy:      {champion_data_2['train_accuracy']*100:.2f}%")
+    print(f"   - Validation Accuracy: {champion_data_2['validation_accuracy']*100:.2f}% (+/- {champion_data_2['validation_std']*200:.2f}%)")
+    print(f"   - Test Accuracy:       {champion_data_2['holdout_accuracy']*100:.2f}%")
+    print(f"   - Test F1 Score:       {champion_data_2['holdout_f1']:.4f}")
     print("\nDetailed Classification Breakdown:")
     print(AssessmentDiagnostics.build_classification_text_report(
         test_y2.values, champion_data_2['test_predictions'], category_names=list(encoder_d2.classes_)
@@ -166,9 +190,9 @@ def execute_stress_analysis_pipeline() -> None:
     print(" - stress_level_model.joblib")
     print(" - stress_type_model.joblib")
 
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 88)
     print("PIPELINE EXECUTION COMPLETE & VERIFIED!")
-    print("=" * 80)
+    print("=" * 88)
 
 
 if __name__ == '__main__':
