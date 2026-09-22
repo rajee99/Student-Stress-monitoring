@@ -75,7 +75,7 @@ def get_finetuned_models(random_seed: int = 42) -> Dict[str, Any]:
         'Gradient Boosting (Fine-Tuned)': GradientBoostingClassifier(
             n_estimators=120,
             learning_rate=0.06,
-            max_depth=4,
+            max_depth=3,
             min_samples_split=8,
             min_samples_leaf=4,
             subsample=0.85,
