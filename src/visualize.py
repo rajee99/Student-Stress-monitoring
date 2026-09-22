@@ -56,7 +56,7 @@ class DiagnosticPlotter:
         fig, axes = plt.subplots(2, 2, figsize=(18, 12))
 
         # Helper to plot baseline vs fine-tuned
-        model_keys = ['Logistic Regression', 'Random Forest', 'Gradient Boosting', 'SVM RBF', 'MLP Neural Net']
+        model_keys = ['Random Forest', 'Gradient Boosting', 'SVM RBF', 'MLP Neural Net']
 
         # Panel (0, 0): Dataset 1 (Stress Level) Baseline vs Fine-Tuned
         ax_b1 = axes[0, 0]

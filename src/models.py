@@ -1,14 +1,14 @@
 """
-Paper Models Engine: Contains ONLY the 5 Classification Models discussed in the Research Paper:
-1. Logistic Regression
-2. Random Forest
-3. Gradient Boosting
-4. Support Vector Machine (RBF Kernel)
-5. Multilayer Perceptron (MLP Neural Network)
+Classification Models Engine (Zero Regression Algorithms).
+Evaluates the core non-linear classification models discussed in the Research Paper:
+1. Random Forest Classifier
+2. Gradient Boosting Classifier
+3. Support Vector Machine Classifier (RBF Kernel)
+4. Multilayer Perceptron (MLP Neural Network)
 
-Provides both:
-- Exact Paper Baseline Configurations (reproducing paper results)
-- Fine-Tuned Configurations (optimized to outperform the paper)
+Provides:
+- Paper Baseline Configurations (default parameters)
+- Fine-Tuned Configurations (optimized for peak accuracy & anti-overfitting)
 """
 
 from typing import Dict, Any, Tuple
@@ -17,7 +17,6 @@ import pandas as pd
 
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
@@ -26,17 +25,10 @@ from sklearn.metrics import accuracy_score, f1_score
 
 def get_paper_baseline_models(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate the exact 5 classification models using the default hyperparameters
-    specified in Table 3 (p. 8) of the published research paper.
+    Instantiate the core classification models using the default hyperparameters
+    specified in Table 3 of the published research paper.
     """
     return {
-        'Logistic Regression (Paper Baseline)': LogisticRegression(
-            penalty='l2',
-            C=1.0,
-            solver='lbfgs',
-            max_iter=1000,
-            random_state=random_seed
-        ),
         'Random Forest (Paper Baseline)': RandomForestClassifier(
             n_estimators=100,
             criterion='gini',
@@ -68,17 +60,10 @@ def get_paper_baseline_models(random_seed: int = 42) -> Dict[str, Any]:
 
 def get_finetuned_models(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate the exact 5 classification models fine-tuned with optimized hyperparameters,
-    bounded depth, leaf sample constraints, and anti-overfitting regularization to beat the paper.
+    Instantiate fine-tuned classification models with optimized depth, leaf constraints,
+    and anti-overfitting regularization.
     """
     return {
-        'Logistic Regression (Fine-Tuned)': LogisticRegression(
-            penalty='l2',
-            C=0.6,
-            solver='lbfgs',
-            max_iter=2000,
-            random_state=random_seed
-        ),
         'Random Forest (Fine-Tuned)': RandomForestClassifier(
             n_estimators=250,
             max_depth=7,
@@ -149,7 +134,7 @@ def find_optimal_feature_scaler(
 
 
 class ModelBenchmarkingService:
-    """Executes cross-validation and out-of-sample evaluations across the 5 paper models."""
+    """Executes cross-validation and out-of-sample evaluations across the candidate classifiers."""
 
     @staticmethod
     def evaluate_model_dictionary(
@@ -161,7 +146,7 @@ class ModelBenchmarkingService:
         random_seed: int = 42,
         k_folds: int = 5
     ) -> Dict[str, Dict[str, Any]]:
-        """Evaluate a dictionary of models and return detailed metric records."""
+        """Evaluate a dictionary of classification models and return detailed metric records."""
         cv_strategy = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
         benchmark_summary = {}
 
