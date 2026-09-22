@@ -1,8 +1,9 @@
 """
-Streamlined Visualization Engine for the Paper's 5 Exact Models.
+Visualization Engine for Stress Classification Pipeline.
 Generates:
-1. benchmark_and_confusion.png (Paper Baseline vs Fine-Tuned Accuracy + Confusion Matrices)
-2. feature_importance_ranking.png (Ranked explanatory stress determinants)
+1. unseen_data_performance.png (Unseen Test Accuracy comparisons + Unseen Confusion Matrices)
+2. benchmark_and_confusion.png (Train vs Validation vs Unseen Test breakdown)
+3. feature_importance_ranking.png (Ranked explanatory stress determinants)
 """
 
 from pathlib import Path
@@ -31,12 +32,118 @@ def configure_visual_theme() -> None:
 
 
 class DiagnosticPlotter:
-    """Renders and persists concise analytical dashboards for the 5 paper models."""
+    """Renders and persists analytical dashboards for the classification models."""
 
     def __init__(self, export_directory: Path):
         self.export_directory = export_directory
         self.export_directory.mkdir(parents=True, exist_ok=True)
         configure_visual_theme()
+
+    def render_unseen_performance_dashboard(
+        self,
+        unseen_metrics_d1: Dict[str, Dict[str, Any]],
+        unseen_metrics_d2: Dict[str, Dict[str, Any]],
+        unseen_cm_d1: np.ndarray,
+        labels_d1: List[str],
+        unseen_cm_d2: np.ndarray,
+        labels_d2: List[str],
+        output_filename: str = "unseen_data_performance.png"
+    ) -> Path:
+        """
+        Dedicated Dashboard Visualizing Out-of-Sample Performance on 100% Unseen Test Data.
+        """
+        fig, axes = plt.subplots(2, 2, figsize=(18, 12))
+
+        # -------------------------------------------------------------
+        # Panel (0, 0): Dataset 1 Unseen Accuracy Bar Chart
+        # -------------------------------------------------------------
+        ax1 = axes[0, 0]
+        models_1 = list(unseen_metrics_d1.keys())
+        accs_1 = [unseen_metrics_d1[m]['holdout_accuracy'] * 100 for m in models_1]
+        correct_1 = [unseen_metrics_d1[m].get('correct_count', 0) for m in models_1]
+        total_1 = unseen_metrics_d1[models_1[0]].get('total_count', 220)
+
+        bars1 = ax1.bar(
+            models_1, accs_1, color=['#27ae60' if a == max(accs_1) else '#3498db' for a in accs_1],
+            edgecolor='black', linewidth=1.1, alpha=0.9
+        )
+        ax1.set_title(f"Dataset 1 (Stress Level): Accuracy on Unseen Data (N={total_1})")
+        ax1.set_ylabel("Unseen Test Accuracy (%)")
+        ax1.set_ylim([75, 100])
+        ax1.set_xticklabels(models_1, rotation=25, ha='right')
+        ax1.grid(axis='y', linestyle='--', alpha=0.7)
+
+        for bar, corr, acc in zip(bars1, correct_1, accs_1):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.8,
+                f"{acc:.2f}%\n({corr}/{total_1})",
+                ha='center', va='bottom', fontweight='bold', fontsize=9
+            )
+
+        # -------------------------------------------------------------
+        # Panel (0, 1): Dataset 2 Unseen Accuracy Bar Chart
+        # -------------------------------------------------------------
+        ax2 = axes[0, 1]
+        models_2 = list(unseen_metrics_d2.keys())
+        accs_2 = [unseen_metrics_d2[m]['holdout_accuracy'] * 100 for m in models_2]
+        correct_2 = [unseen_metrics_d2[m].get('correct_count', 0) for m in models_2]
+        total_2 = unseen_metrics_d2[models_2[0]].get('total_count', 164)
+
+        bars2 = ax2.bar(
+            models_2, accs_2, color=['#27ae60' if a == max(accs_2) else '#3498db' for a in accs_2],
+            edgecolor='black', linewidth=1.1, alpha=0.9
+        )
+        ax2.set_title(f"Dataset 2 (Stress Type): Accuracy on Unseen Data (N={total_2})")
+        ax2.set_ylabel("Unseen Test Accuracy (%)")
+        ax2.set_ylim([85, 102])
+        ax2.set_xticklabels(models_2, rotation=25, ha='right')
+        ax2.grid(axis='y', linestyle='--', alpha=0.7)
+
+        for bar, corr, acc in zip(bars2, correct_2, accs_2):
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.5,
+                f"{acc:.2f}%\n({corr}/{total_2})",
+                ha='center', va='bottom', fontweight='bold', fontsize=9
+            )
+
+        # -------------------------------------------------------------
+        # Panel (1, 0): Dataset 1 Unseen Normalized Confusion Matrix
+        # -------------------------------------------------------------
+        ax3 = axes[1, 0]
+        sns.heatmap(
+            unseen_cm_d1, annot=True, fmt=".1%", cmap="Blues", cbar=True,
+            xticklabels=labels_d1, yticklabels=labels_d1, ax=ax3, linewidths=0.5
+        )
+        ax3.set_title("Dataset 1: Unseen Data Confusion Matrix (Top Model)")
+        ax3.set_xlabel("Predicted Class")
+        ax3.set_ylabel("True Ground Truth")
+
+        # -------------------------------------------------------------
+        # Panel (1, 1): Dataset 2 Unseen Normalized Confusion Matrix
+        # -------------------------------------------------------------
+        ax4 = axes[1, 1]
+        clean_d2_labels = [
+            (label.split(' - ')[0] if ' - ' in label else label) for label in labels_d2
+        ]
+        short_labels = [(l[:14] + '..') if len(l) > 16 else l for l in clean_d2_labels]
+        sns.heatmap(
+            unseen_cm_d2, annot=True, fmt=".1%", cmap="Greens", cbar=True,
+            xticklabels=short_labels, yticklabels=short_labels, ax=ax4, linewidths=0.5
+        )
+        ax4.set_title("Dataset 2: Unseen Data Confusion Matrix (Top Model)")
+        ax4.set_xlabel("Predicted Class")
+        ax4.set_ylabel("True Ground Truth")
+        ax4.set_xticklabels(ax4.get_xticklabels(), rotation=25, ha='right')
+
+        plt.suptitle("Generalization Diagnostics on 100% Unseen Held-Out Test Data", fontsize=15, fontweight='bold')
+        plt.tight_layout()
+
+        destination_path = self.export_directory / output_filename
+        plt.savefig(destination_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        return destination_path
 
     def render_benchmark_and_confusion(
         self,
@@ -51,14 +158,13 @@ class DiagnosticPlotter:
         output_filename: str = "benchmark_and_confusion.png"
     ) -> Path:
         """
-        Unified 4-panel dashboard comparing Paper Baseline vs Fine-Tuned models and Confusion Matrices.
+        Unified 4-panel dashboard comparing Paper Baseline vs Fine-Tuned models.
         """
         fig, axes = plt.subplots(2, 2, figsize=(18, 12))
 
-        # Helper to plot baseline vs fine-tuned
         model_keys = ['Random Forest', 'Gradient Boosting', 'SVM RBF', 'MLP Neural Net']
 
-        # Panel (0, 0): Dataset 1 (Stress Level) Baseline vs Fine-Tuned
+        # Panel (0, 0): Dataset 1 (Stress Level)
         ax_b1 = axes[0, 0]
         base_acc_d1 = [
             list(baseline_results_d1.values())[i]['holdout_accuracy'] * 100 for i in range(len(model_keys))
@@ -70,17 +176,17 @@ class DiagnosticPlotter:
         x_idx = np.arange(len(model_keys))
         bar_w = 0.35
         ax_b1.bar(x_idx - bar_w/2, base_acc_d1, bar_w, label='Paper Baseline Test Acc (%)', color='#e74c3c', alpha=0.85)
-        ax_b1.bar(x_idx + bar_w/2, fine_acc_d1, bar_w, label='Fine-Tuned Test Acc (%)', color='#2ecc71', alpha=0.95)
+        ax_b1.bar(x_idx + bar_w/2, fine_acc_d1, bar_w, label='Fine-Tuned Unseen Acc (%)', color='#2ecc71', alpha=0.95)
         
-        ax_b1.set_title("Dataset 1 (Stress Level): Paper Baseline vs. Fine-Tuned Accuracy")
-        ax_b1.set_ylabel("Test Accuracy (%)")
+        ax_b1.set_title("Dataset 1 (Stress Level): Paper Baseline vs. Fine-Tuned")
+        ax_b1.set_ylabel("Accuracy (%)")
         ax_b1.set_xticks(x_idx)
         ax_b1.set_xticklabels(model_keys, rotation=25, ha='right')
         ax_b1.set_ylim([80, 102])
         ax_b1.legend(loc='lower right')
         ax_b1.grid(axis='y', linestyle='--', alpha=0.7)
 
-        # Panel (0, 1): Dataset 2 (Stress Type) Baseline vs Fine-Tuned
+        # Panel (0, 1): Dataset 2 (Stress Type)
         ax_b2 = axes[0, 1]
         base_acc_d2 = [
             list(baseline_results_d2.values())[i]['holdout_accuracy'] * 100 for i in range(len(model_keys))
@@ -90,27 +196,27 @@ class DiagnosticPlotter:
         ]
         
         ax_b2.bar(x_idx - bar_w/2, base_acc_d2, bar_w, label='Paper Baseline Test Acc (%)', color='#e74c3c', alpha=0.85)
-        ax_b2.bar(x_idx + bar_w/2, fine_acc_d2, bar_w, label='Fine-Tuned Test Acc (%)', color='#2ecc71', alpha=0.95)
+        ax_b2.bar(x_idx + bar_w/2, fine_acc_d2, bar_w, label='Fine-Tuned Unseen Acc (%)', color='#2ecc71', alpha=0.95)
         
-        ax_b2.set_title("Dataset 2 (Stress Type): Paper Baseline vs. Fine-Tuned Accuracy")
-        ax_b2.set_ylabel("Test Accuracy (%)")
+        ax_b2.set_title("Dataset 2 (Stress Type): Paper Baseline vs. Fine-Tuned")
+        ax_b2.set_ylabel("Accuracy (%)")
         ax_b2.set_xticks(x_idx)
         ax_b2.set_xticklabels(model_keys, rotation=25, ha='right')
         ax_b2.set_ylim([85, 102])
         ax_b2.legend(loc='lower right')
         ax_b2.grid(axis='y', linestyle='--', alpha=0.7)
 
-        # Panel (1, 0): Dataset 1 Normalized Confusion Matrix
+        # Panel (1, 0): Dataset 1 Confusion Matrix
         ax_cm1 = axes[1, 0]
         sns.heatmap(
             confusion_matrix_d1, annot=True, fmt=".1%", cmap="Blues", cbar=True,
             xticklabels=labels_d1, yticklabels=labels_d1, ax=ax_cm1
         )
-        ax_cm1.set_title("Dataset 1: Confusion Matrix (Fine-Tuned Champion)")
+        ax_cm1.set_title("Dataset 1: Normalized Confusion Matrix")
         ax_cm1.set_xlabel("Predicted Label")
         ax_cm1.set_ylabel("Ground Truth")
 
-        # Panel (1, 1): Dataset 2 Normalized Confusion Matrix
+        # Panel (1, 1): Dataset 2 Confusion Matrix
         ax_cm2 = axes[1, 1]
         clean_d2_labels = [
             (label.split(' - ')[0] if ' - ' in label else label) for label in labels_d2
@@ -120,7 +226,7 @@ class DiagnosticPlotter:
             confusion_matrix_d2, annot=True, fmt=".1%", cmap="Greens", cbar=True,
             xticklabels=short_labels, yticklabels=short_labels, ax=ax_cm2
         )
-        ax_cm2.set_title("Dataset 2: Confusion Matrix (Fine-Tuned Champion)")
+        ax_cm2.set_title("Dataset 2: Normalized Confusion Matrix")
         ax_cm2.set_xlabel("Predicted Label")
         ax_cm2.set_ylabel("Ground Truth")
         ax_cm2.set_xticklabels(ax_cm2.get_xticklabels(), rotation=25, ha='right')

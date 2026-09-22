@@ -1,15 +1,15 @@
 """
 Master Machine Learning Pipeline Runner.
-Evaluates ONLY the 5 models discussed in the Research Paper:
-1. Logistic Regression
-2. Random Forest
-3. Gradient Boosting
-4. SVM (RBF Kernel)
-5. Multilayer Perceptron (MLP)
+Evaluates ONLY the 4 core classification models:
+1. Random Forest Classifier
+2. Gradient Boosting Classifier
+3. SVM Classifier (RBF Kernel)
+4. Multilayer Perceptron (MLP Neural Network)
 
-Executes both:
-- Phase A: Paper Baseline Configurations (reproducing paper metrics)
-- Phase B: Fine-Tuned Configurations (optimized to beat the paper)
+Automatically runs:
+- 5-Fold Cross-Validation on Training Set (80%)
+- Full Evaluation & Accuracy Measurement on 100% UNSEEN Test Data (20%)
+- Automated Visualizations of Unseen Data Performance & Feature Attribution
 """
 
 import os
@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import joblib
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
 
 from src.config import app_config, initialize_output_directories
 from src.data_loader import DataAuditService
@@ -36,36 +37,28 @@ from src.evaluate import AssessmentDiagnostics
 from src.visualize import DiagnosticPlotter
 
 
-def print_paper_comparison_table(baseline_dict: dict, finetuned_dict: dict, dataset_name: str) -> None:
-    """Print a clean comparative summary table for the 5 paper models."""
+def print_unseen_performance_table(unseen_dict: dict, dataset_name: str) -> None:
+    """Print a clean summary table of model accuracy on 100% unseen test data."""
     print(f"\n{'=' * 96}")
-    print(f"HEAD-TO-HEAD COMPARISON: {dataset_name.upper()} (PAPER BASELINE vs. FINE-TUNED)")
+    print(f"UNSEEN TEST DATA ACCURACY BREAKDOWN: {dataset_name.upper()}")
     print(f"{'=' * 96}")
-    print(f"{'Model Name':<26} {'Paper Base Test':<18} {'Fine-Tuned Test':<18} {'Val Acc (5-Fold)':<18} {'Gain':<10}")
+    print(f"{'Model Name':<28} {'Unseen Accuracy':<18} {'Correct / Total':<18} {'Val Acc (5-Fold)':<18} {'Weighted F1':<12}")
     print("-" * 96)
     
-    base_keys = list(baseline_dict.keys())
-    fine_keys = list(finetuned_dict.keys())
-
-    for b_key, f_key in zip(base_keys, fine_keys):
-        b_data = baseline_dict[b_key]
-        f_data = finetuned_dict[f_key]
-        
-        b_acc = b_data['holdout_accuracy'] * 100
-        f_acc = f_data['holdout_accuracy'] * 100
-        val_acc = f_data['validation_accuracy'] * 100
-        val_std = f_data['validation_std'] * 200
-        diff = f_acc - b_acc
-
-        clean_name = b_key.replace(' (Paper Baseline)', '')
-        gain_str = f"+{diff:.2f}%" if diff >= 0 else f"{diff:.2f}%"
+    for model_name, data in unseen_dict.items():
+        acc = data['holdout_accuracy'] * 100
+        correct = data.get('correct_count', 0)
+        total = data.get('total_count', 0)
+        val_acc = data['validation_accuracy'] * 100
+        val_std = data['validation_std'] * 200
+        f1 = data['holdout_f1']
 
         print(
-            f"{clean_name:<26} "
-            f"{b_acc:>12.2f}%      "
-            f"{f_acc:>12.2f}%      "
+            f"{model_name:<28} "
+            f"{acc:>12.2f}%      "
+            f"{correct}/{total:<13} "
             f"{val_acc:>6.2f}% (+/- {val_std:>4.2f}%)   "
-            f"{gain_str:>8}"
+            f"{f1:>10.4f}"
         )
     print("-" * 96)
 
@@ -73,8 +66,7 @@ def print_paper_comparison_table(baseline_dict: dict, finetuned_dict: dict, data
 def execute_stress_analysis_pipeline() -> None:
     """Execute the end-to-end model training, validation, and diagnostics pipeline."""
     print("=" * 96)
-    print("REPRODUCING & OUTPERFORMING RESEARCH PAPER CLASSIFICATION FRAMEWORK")
-    print("Paper: 'An explainable machine learning framework for academic stress classification' (2026)")
+    print("STUDENT STRESS PREDICTION: CORE CLASSIFIERS & UNSEEN DATA BENCHMARK")
     print("=" * 96)
 
     # Step 1: Initialize storage destinations
@@ -98,11 +90,11 @@ def execute_stress_analysis_pipeline() -> None:
     print(f" -> Dataset 1 Feature Representation: {features_d1.shape[1]} features, {features_d1.shape[0]} samples.")
     print(f" -> Dataset 2 Feature Representation: {features_d2.shape[1]} features, {features_d2.shape[0]} samples.")
 
-    # Step 4: Stratified Partitioning & Adaptive Feature Scaling
-    print("\n[Phase 3] Stratified Partitioning (80/20) & Adaptive Preconditioning...")
+    # Step 4: Stratified Partitioning (80% Train / 20% Held-Out Unseen Test)
+    print("\n[Phase 3] Stratified Partitioning (80% Train / 20% Unseen Test)...")
     
     # Dataset 1 Split
-    train_x1, test_x1, train_y1, test_y1 = train_test_split(
+    train_x1, unseen_x1, train_y1, unseen_y1 = train_test_split(
         features_d1, target_d1,
         test_size=app_config.HOLDOUT_TEST_FRACTION,
         random_state=app_config.DATA_SPLIT_RANDOM_SEED,
@@ -114,11 +106,11 @@ def execute_stress_analysis_pipeline() -> None:
         cv_partitions=app_config.STRATIFIED_K_FOLDS
     )
     scaled_train_x1 = scaler_instance_1.fit_transform(train_x1)
-    scaled_test_x1 = scaler_instance_1.transform(test_x1)
-    print(f" -> Dataset 1 Preconditioning: {scaler_name_1}")
+    scaled_unseen_x1 = scaler_instance_1.transform(unseen_x1)
+    print(f" -> Dataset 1 Preconditioning: {scaler_name_1} | Train={len(train_x1)}, Unseen Test={len(unseen_x1)}")
 
     # Dataset 2 Split
-    train_x2, test_x2, train_y2, test_y2 = train_test_split(
+    train_x2, unseen_x2, train_y2, unseen_y2 = train_test_split(
         features_d2, target_d2,
         test_size=app_config.HOLDOUT_TEST_FRACTION,
         random_state=app_config.DATA_SPLIT_RANDOM_SEED,
@@ -130,69 +122,84 @@ def execute_stress_analysis_pipeline() -> None:
         cv_partitions=app_config.STRATIFIED_K_FOLDS
     )
     scaled_train_x2 = scaler_instance_2.fit_transform(train_x2)
-    scaled_test_x2 = scaler_instance_2.transform(test_x2)
-    print(f" -> Dataset 2 Preconditioning: {scaler_name_2}")
+    scaled_unseen_x2 = scaler_instance_2.transform(unseen_x2)
+    print(f" -> Dataset 2 Preconditioning: {scaler_name_2} | Train={len(train_x2)}, Unseen Test={len(unseen_x2)}")
 
-    # Step 5: Evaluate 5 Paper Baseline Models
-    print("\n[Phase 4A] Benchmarking 5 Paper Baseline Models (Default Parameters)...")
+    # Step 5: Evaluate Paper Baseline Models
+    print("\n[Phase 4A] Benchmarking Paper Baseline Models...")
     baseline_models_d1 = get_paper_baseline_models(random_seed=app_config.DATA_SPLIT_RANDOM_SEED)
     baseline_models_d2 = get_paper_baseline_models(random_seed=app_config.DATA_SPLIT_RANDOM_SEED)
 
     baseline_d1 = ModelBenchmarkingService.evaluate_model_dictionary(
-        baseline_models_d1, scaled_train_x1, train_y1.values, scaled_test_x1, test_y1.values,
+        baseline_models_d1, scaled_train_x1, train_y1.values, scaled_unseen_x1, unseen_y1.values,
         random_seed=app_config.DATA_SPLIT_RANDOM_SEED, k_folds=app_config.STRATIFIED_K_FOLDS
     )
     baseline_d2 = ModelBenchmarkingService.evaluate_model_dictionary(
-        baseline_models_d2, scaled_train_x2, train_y2.values, scaled_test_x2, test_y2.values,
+        baseline_models_d2, scaled_train_x2, train_y2.values, scaled_unseen_x2, unseen_y2.values,
         random_seed=app_config.DATA_SPLIT_RANDOM_SEED, k_folds=app_config.STRATIFIED_K_FOLDS
     )
 
-    # Step 6: Evaluate 5 Fine-Tuned Models (Optimized to Beat the Paper)
-    print("\n[Phase 4B] Benchmarking 5 Fine-Tuned Models (Regularized & Depth-Bounded)...")
+    # Step 6: Train & Evaluate Fine-Tuned Models on Unseen Data
+    print("\n[Phase 4B] Training & Evaluating Fine-Tuned Models on 100% Unseen Test Data...")
     finetuned_models_d1 = get_finetuned_models(random_seed=app_config.DATA_SPLIT_RANDOM_SEED)
     finetuned_models_d2 = get_finetuned_models(random_seed=app_config.DATA_SPLIT_RANDOM_SEED)
 
     finetuned_d1 = ModelBenchmarkingService.evaluate_model_dictionary(
-        finetuned_models_d1, scaled_train_x1, train_y1.values, scaled_test_x1, test_y1.values,
+        finetuned_models_d1, scaled_train_x1, train_y1.values, scaled_unseen_x1, unseen_y1.values,
         random_seed=app_config.DATA_SPLIT_RANDOM_SEED, k_folds=app_config.STRATIFIED_K_FOLDS
     )
     finetuned_d2 = ModelBenchmarkingService.evaluate_model_dictionary(
-        finetuned_models_d2, scaled_train_x2, train_y2.values, scaled_test_x2, test_y2.values,
+        finetuned_models_d2, scaled_train_x2, train_y2.values, scaled_unseen_x2, unseen_y2.values,
         random_seed=app_config.DATA_SPLIT_RANDOM_SEED, k_folds=app_config.STRATIFIED_K_FOLDS
     )
 
-    # Display Comparative Tables
-    print_paper_comparison_table(baseline_d1, finetuned_d1, "Dataset 1 - Stress Level")
-    print_paper_comparison_table(baseline_d2, finetuned_d2, "Dataset 2 - Stress Type")
+    # Attach sample counts for reporting
+    for k, v in finetuned_d1.items():
+        v['total_count'] = len(unseen_y1)
+        v['correct_count'] = int(np.sum(v['test_predictions'] == unseen_y1.values))
 
-    # Step 7: Identify Fine-Tuned Champions
-    print("\n[Phase 5] Champion Model Selection & Metrics Report...")
+    for k, v in finetuned_d2.items():
+        v['total_count'] = len(unseen_y2)
+        v['correct_count'] = int(np.sum(v['test_predictions'] == unseen_y2.values))
+
+    # Display Unseen Performance Tables
+    print_unseen_performance_table(finetuned_d1, "Dataset 1 - Stress Level (Unseen Data)")
+    print_unseen_performance_table(finetuned_d2, "Dataset 2 - Stress Type (Unseen Data)")
+
+    # Step 7: Identify Unseen Data Champions & Detailed Classification Reports
+    print("\n[Phase 5] Unseen Data Champion Models & Metrics Breakdown...")
     champion_name_1, champion_data_1 = AssessmentDiagnostics.pick_champion_model(finetuned_d1)
     champion_name_2, champion_data_2 = AssessmentDiagnostics.pick_champion_model(finetuned_d2)
 
     print("=" * 96)
-    print(f"[CHAMPION MODEL] DATASET 1 (STRESS LEVEL): {champion_name_1}")
-    print(f"   - Train Accuracy:      {champion_data_1['train_accuracy']*100:.2f}%")
-    print(f"   - Validation Accuracy: {champion_data_1['validation_accuracy']*100:.2f}% (+/- {champion_data_1['validation_std']*200:.2f}%)")
-    print(f"   - Test Accuracy:       {champion_data_1['holdout_accuracy']*100:.2f}% (Paper Baseline: 89.09%)")
-    print(f"   - Test F1 Score:       {champion_data_1['holdout_f1']:.4f}")
-    print("\nDetailed Classification Breakdown:")
+    print(f"[CHAMPION ON UNSEEN DATA] DATASET 1 (STRESS LEVEL): {champion_name_1}")
+    print(f"   - Unseen Test Accuracy: {champion_data_1['holdout_accuracy']*100:.2f}% ({champion_data_1['correct_count']}/{champion_data_1['total_count']} Correct)")
+    print(f"   - Validation Accuracy:  {champion_data_1['validation_accuracy']*100:.2f}% (+/- {champion_data_1['validation_std']*200:.2f}%)")
+    print(f"   - Weighted F1 Score:    {champion_data_1['holdout_f1']:.4f}")
+    print("\nDetailed Classification Breakdown on Unseen Data:")
     print(AssessmentDiagnostics.build_classification_text_report(
-        test_y1.values, champion_data_1['test_predictions'], category_names=['Level 0', 'Level 1', 'Level 2']
+        unseen_y1.values, champion_data_1['test_predictions'], category_names=['Level 0 (Low)', 'Level 1 (Medium)', 'Level 2 (High)']
     ))
 
     print("=" * 96)
-    print(f"[CHAMPION MODEL] DATASET 2 (STRESS TYPE): {champion_name_2}")
-    print(f"   - Train Accuracy:      {champion_data_2['train_accuracy']*100:.2f}%")
-    print(f"   - Validation Accuracy: {champion_data_2['validation_accuracy']*100:.2f}% (+/- {champion_data_2['validation_std']*200:.2f}%)")
-    print(f"   - Test Accuracy:       {champion_data_2['holdout_accuracy']*100:.2f}% (Paper Baseline: 93.59%)")
-    print(f"   - Test F1 Score:       {champion_data_2['holdout_f1']:.4f}")
-    print("\nDetailed Classification Breakdown:")
+    print(f"[CHAMPION ON UNSEEN DATA] DATASET 2 (STRESS TYPE): {champion_name_2}")
+    print(f"   - Unseen Test Accuracy: {champion_data_2['holdout_accuracy']*100:.2f}% ({champion_data_2['correct_count']}/{champion_data_2['total_count']} Correct)")
+    print(f"   - Validation Accuracy:  {champion_data_2['validation_accuracy']*100:.2f}% (+/- {champion_data_2['validation_std']*200:.2f}%)")
+    print(f"   - Weighted F1 Score:    {champion_data_2['holdout_f1']:.4f}")
+    print("\nDetailed Classification Breakdown on Unseen Data:")
     print(AssessmentDiagnostics.build_classification_text_report(
-        test_y2.values, champion_data_2['test_predictions'], category_names=list(encoder_d2.classes_)
+        unseen_y2.values, champion_data_2['test_predictions'], category_names=list(encoder_d2.classes_)
     ))
 
-    # Feature Importance & Confusion Matrix Calculations
+    # Confusion Matrices on Unseen Data
+    unseen_cm_d1 = AssessmentDiagnostics.calculate_normalized_confusion_matrix(
+        unseen_y1.values, champion_data_1['test_predictions']
+    )
+    unseen_cm_d2 = AssessmentDiagnostics.calculate_normalized_confusion_matrix(
+        unseen_y2.values, champion_data_2['test_predictions']
+    )
+
+    # Feature Importance Calculations
     attribution_d1 = AssessmentDiagnostics.rank_feature_influences(
         champion_data_1['fitted_estimator'], features_d1.columns.tolist()
     )
@@ -200,23 +207,25 @@ def execute_stress_analysis_pipeline() -> None:
         champion_data_2['fitted_estimator'], features_d2.columns.tolist()
     )
 
-    cm_d1 = AssessmentDiagnostics.calculate_normalized_confusion_matrix(
-        test_y1.values, champion_data_1['test_predictions']
-    )
-    cm_d2 = AssessmentDiagnostics.calculate_normalized_confusion_matrix(
-        test_y2.values, champion_data_2['test_predictions']
+    # Step 8: Export Visualizations (Including dedicated Unseen Performance Dashboard)
+    print("\n[Phase 6] Exporting Visualizations & Persisting Models...")
+    
+    # 1. Unseen Data Performance Dashboard
+    fig_unseen = plot_generator.render_unseen_performance_dashboard(
+        finetuned_d1, finetuned_d2,
+        unseen_cm_d1, ['Level 0 (Low)', 'Level 1 (Medium)', 'Level 2 (High)'],
+        unseen_cm_d2, list(encoder_d2.classes_)
     )
 
-    # Step 8: Persist Models and Generate Visualizations
-    print("\n[Phase 6] Exporting Artifacts & Persisting Figures...")
-    
-    # Save 2 concise figures
+    # 2. Baseline vs Fine-Tuned Benchmark & Confusion
     fig_bench = plot_generator.render_benchmark_and_confusion(
         baseline_d1, finetuned_d1,
         baseline_d2, finetuned_d2,
-        cm_d1, ['Level 0', 'Level 1', 'Level 2'],
-        cm_d2, list(encoder_d2.classes_)
+        unseen_cm_d1, ['Level 0 (Low)', 'Level 1 (Medium)', 'Level 2 (High)'],
+        unseen_cm_d2, list(encoder_d2.classes_)
     )
+
+    # 3. Feature Importance Ranking
     fig_feat = plot_generator.render_feature_importance(attribution_d1, attribution_d2)
 
     # Save fitted model artifacts
@@ -230,15 +239,16 @@ def execute_stress_analysis_pipeline() -> None:
     joblib.dump(encoder_d2, app_config.SAVED_MODELS_DIR / "stress_type_label_encoder.joblib")
 
     print(f"\nVisualizations Successfully Exported to: {app_config.CHARTS_EXPORT_DIR}")
-    print(f" 1. {fig_bench.name}")
-    print(f" 2. {fig_feat.name}")
+    print(f" 1. {fig_unseen.name} (NEW: Unseen Data Performance Dashboard)")
+    print(f" 2. {fig_bench.name}")
+    print(f" 3. {fig_feat.name}")
 
     print(f"\nModel Artifacts Successfully Saved to: {app_config.SAVED_MODELS_DIR}")
     print(" - stress_level_model.joblib")
     print(" - stress_type_model.joblib")
 
     print("\n" + "=" * 96)
-    print("PIPELINE EXECUTION COMPLETE: 5 PAPER MODELS EVALUATED & OPTIMIZED!")
+    print("PIPELINE EXECUTION COMPLETE & UNSEEN ACCURACY RECORDED!")
     print("=" * 96)
 
 
