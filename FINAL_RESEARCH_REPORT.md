@@ -266,14 +266,26 @@ Our framework decomposes continuous feature signals into **5 Core Stress Dimensi
 
 ---
 
-## 8. Generated Visualizations & Diagnostic Assets
+## 8. Generated Visualizations & Diagnostic Assets (8-Figure Suite)
 
-All figures are rendered at publication quality ($300\text{ DPI}$) and persisted in [`outputs/figures/`](outputs/figures/) and [`novel_models_experiment/outputs/figures/`](novel_models_experiment/outputs/figures/):
+All figures are rendered at publication quality ($300\text{ DPI}$) with LaTeX-style mathematical notations and persisted in [`novel_models_experiment/outputs/figures/`](novel_models_experiment/outputs/figures/):
 
-1. **`unseen_accuracy_comparison.png` & `unseen_data_performance.png`:** Unseen accuracy comparisons across candidate models with exact sample count annotations.
-2. **`benchmark_and_confusion.png` & `confusion_matrices.png`:** 4-panel normalized confusion matrices identifying per-class true positive rates.
-3. **`feature_importance_ranking.png` & `learned_feature_metric_importance.png`:** Gini feature importance and learned Mahalanobis precision metric weights.
-4. **`xai_student_explanation_recommendation.png`:** Student-level stress dimension decomposition and prescriptive intervention architecture.
+1. **Figure 1: Dataset & Class Distribution Profiles (`figure_01_dataset_and_class_distributions.png`)**
+   - Empirical class prior distributions and continuous feature densities for Dataset 1 ($N=1,100$) and Dataset 2 ($N=820$).
+2. **Figure 2: Manifold Projection & Latent Cluster Separation (`figure_02_manifold_projection_and_tsne.png`)**
+   - 2D t-SNE and PCA projections comparing raw input tabular space against Riemannian manifold prototype embeddings learned by KMAC.
+3. **Figure 3: Unseen Test Accuracy & Cross-Validation Benchmarks (`figure_03_unseen_performance_benchmark.png`)**
+   - Out-of-sample unseen test accuracy ($N=220$ and $N=164$) and 5-fold cross-validation comparisons across all models with exact sample count annotations.
+4. **Figure 4: Normalized Multiclass Confusion Matrices (`figure_04_normalized_confusion_matrices.png`)**
+   - $2 \times 2$ grid of normalized confusion matrix heatmaps showing true positive rates across KMAC, RGFN, SVM, and Deep MLP.
+5. **Figure 5: ROC and Precision-Recall Curves (`figure_05_roc_and_pr_curves.png`)**
+   - Multiclass One-vs-Rest ROC curves with micro/macro AUC and Precision-Recall curves on unseen test samples.
+6. **Figure 6: Global Feature Importance & Learned Metric Weights (`figure_06_global_feature_importance_and_metric_weights.png`)**
+   - Learned Mahalanobis precision weights $\mathbf{w} = \exp(\boldsymbol{\theta})$ for KMAC and neural Squeeze-and-Excitation channel gating activations for RGFN.
+7. **Figure 7: Student-Level XAI 5-Dimension Radar & Factor Attribution (`figure_07_student_xai_dimension_decomposition.png`)**
+   - 5-Dimensional radar/spider chart and factor breakdown for individual student risk diagnosis.
+8. **Figure 8: Prescriptive Recommendation Engine Flowchart (`figure_08_prescriptive_recommendation_engine.png`)**
+   - Complete decision flowchart and triage mapping translating model predictions and dimensional factors into actionable student support protocols.
 
 ---
 

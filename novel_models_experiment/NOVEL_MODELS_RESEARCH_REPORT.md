@@ -226,12 +226,26 @@ flowchart TD
 
 ---
 
-## 7. Visual Artifacts Generated
+## 7. Publication-Grade Visualization Suite (8 Figures)
 
-1. `outputs/figures/unseen_accuracy_comparison.png` - Unseen test accuracy bar chart comparison across all candidate models.
-2. `outputs/figures/confusion_matrices.png` - Normalized confusion matrix heatmaps on unseen test data for both datasets.
-3. `outputs/figures/learned_feature_metric_importance.png` - Top learned Mahalanobis metric weights (KMAC) and mean input gradient attributions (RGFN).
-4. `outputs/figures/xai_student_explanation_recommendation.png` - Student stress dimension attribution and prescriptive intervention architecture.
+All figures have been rendered at $300\text{ DPI}$ with publication typography and saved under [`outputs/figures/`](outputs/figures/):
+
+1. **Figure 1: Dataset & Class Distribution Profiles (`figure_01_dataset_and_class_distributions.png`)**
+   - *Description:* Multi-panel statistical overview showing the balanced vs. long-tailed class distributions across Dataset 1 (Stress Level) and Dataset 2 (Stress Type), alongside key continuous feature density distributions.
+2. **Figure 2: Manifold Projection & Latent Cluster Separation (`figure_02_manifold_projection_and_tsne.png`)**
+   - *Description:* Comparative 2D t-SNE and PCA visualizations contrasting raw Euclidean tabular feature space against the internal Riemannian prototype representations learned by KMAC and RGFN. Demonstrates how intra-class variance contracts while inter-class separation margins expand.
+3. **Figure 3: 100% Unseen Test & Cross-Validation Benchmarks (`figure_03_unseen_performance_benchmark.png`)**
+   - *Description:* Strict out-of-sample unseen test accuracy and 5-fold cross-validation performance bar charts with exact correct/total sample counts ($199/220$ for KMAC, $158/164$ for RGFN) and error bars.
+4. **Figure 4: Normalized Multiclass Confusion Matrices (`figure_04_normalized_confusion_matrices.png`)**
+   - *Description:* $2 \times 2$ grid of normalized confusion matrix heatmaps comparing KMAC, RGFN, SVM RBF, and Deep MLP, illustrating flawless separation in high-stress categories and near-zero minority-class leakage.
+5. **Figure 5: Receiver Operating Characteristic (ROC) & Precision-Recall (PR) Curves (`figure_05_roc_and_pr_curves.png`)**
+   - *Description:* One-vs-Rest ROC curves with macro/micro AUC and Precision-Recall curves verifying classifier discrimination thresholds across all stress classes.
+6. **Figure 6: Global Feature Importance & Learned Metric Weights (`figure_06_global_feature_importance_and_metric_weights.png`)**
+   - *Description:* Bar chart breakdown of learned Mahalanobis precision weights ($\mathbf{w} = \exp(\boldsymbol{\theta})$) in KMAC and Squeeze-and-Excitation gating activations in RGFN, highlighting physiological load, sleep quality, and academic performance as dominant drivers.
+7. **Figure 7: Student-Level XAI 5-Dimension Radar & Factor Attribution (`figure_07_student_xai_dimension_decomposition.png`)**
+   - *Description:* Individual student case analysis featuring a 5-dimension radar/spider chart and factor breakdown (Academic, Psychological, Physical, Environmental, Social) highlighting dominant stress vectors.
+8. **Figure 8: Prescriptive Recommendation Engine Architecture (`figure_08_prescriptive_recommendation_engine.png`)**
+   - *Description:* End-to-end flowchart and triage matrix illustrating how raw student survey responses pass through non-tree manifold inference, trigger dimensional factor decomposition, and generate actionable, evidence-based campus interventions.
 
 ---
 
