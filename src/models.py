@@ -1,6 +1,7 @@
 """
-Model Registry, Adaptive Preconditioning, and Cross-Validation Engine.
-Includes strict regularization to prevent training set memorization/overfitting.
+Classification Model Suite & Benchmarking Engine.
+Includes the Paper's exact classification algorithms, fine-tuned ensemble models,
+and Deep Learning architectures (LSTM & Squeeze-and-Excitation SE-Blocks).
 """
 
 from typing import Dict, Any, Tuple
@@ -15,18 +16,19 @@ from sklearn.ensemble import (
     GradientBoostingClassifier,
     HistGradientBoostingClassifier,
     AdaBoostClassifier,
-    BaggingClassifier
+    BaggingClassifier,
+    VotingClassifier
 )
-from sklearn.linear_model import LogisticRegression, RidgeClassifier
-from sklearn.svm import SVC, LinearSVC
+from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, f1_score
 
-# Optional high-performance tree libraries
+from src.dl_models import SETabularClassifier, TabularLSTMClassifier
+
+# Optional gradient boosted tree libraries
 try:
     import xgboost as xgb
     HAS_XGB = True
@@ -42,127 +44,134 @@ except ImportError:
 
 def build_candidate_classifier_suite(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate a strictly regularized suite of estimators with shallow depth,
-    conservative leaf minimums, subsampling, and penalties to prevent memorization.
+    Instantiate classification algorithms including:
+    1. Paper's exact classification models (fine-tuned & regularized)
+    2. Deep Learning models (LSTM & SE-Tabular Network)
+    3. High-performance tree & voting ensembles
     """
     classifier_portfolio = {
-        'Random Forest (Reg)': RandomForestClassifier(
-            n_estimators=100,
-            max_depth=5,
-            min_samples_split=16,
-            min_samples_leaf=8,
+        # --- The Paper's Exact Classification Models (Fine-Tuned) ---
+        'Random Forest (Fine-Tuned)': RandomForestClassifier(
+            n_estimators=200,
+            max_depth=6,
+            min_samples_split=8,
+            min_samples_leaf=4,
             max_features='sqrt',
             random_state=random_seed
         ),
-        'Extra Trees (Reg)': ExtraTreesClassifier(
+        'Gradient Boosting (Fine-Tuned)': GradientBoostingClassifier(
             n_estimators=100,
-            max_depth=5,
-            min_samples_split=16,
-            min_samples_leaf=8,
-            max_features='sqrt',
-            random_state=random_seed
-        ),
-        'Gradient Boosting (Reg)': GradientBoostingClassifier(
-            n_estimators=50,
             learning_rate=0.05,
             max_depth=3,
-            min_samples_split=16,
-            min_samples_leaf=8,
-            subsample=0.75,
+            min_samples_split=10,
+            min_samples_leaf=6,
+            subsample=0.80,
             random_state=random_seed
         ),
-        'Hist Gradient Boosting (Reg)': HistGradientBoostingClassifier(
-            max_iter=50,
-            learning_rate=0.05,
-            max_depth=3,
-            min_samples_leaf=12,
-            l2_regularization=5.0,
-            random_state=random_seed
-        ),
-        'AdaBoost (Reg)': AdaBoostClassifier(
-            n_estimators=50,
-            learning_rate=0.2,
-            random_state=random_seed
-        ),
-        'Bagging Ensemble (Reg)': BaggingClassifier(
-            estimator=DecisionTreeClassifier(max_depth=4, min_samples_leaf=6),
-            n_estimators=50,
-            max_samples=0.75,
-            max_features=0.80,
-            random_state=random_seed
-        ),
-        'SVM (RBF Kernel)': SVC(
-            C=0.7,
+        'SVM Classifier (RBF Kernel)': SVC(
+            C=1.2,
+            gamma='scale',
             kernel='rbf',
-            random_state=random_seed,
-            probability=True
-        ),
-        'SVM (Poly Kernel)': SVC(
-            C=0.5,
-            degree=2,
-            kernel='poly',
-            random_state=random_seed,
-            probability=True
-        ),
-        'Linear SVM': LinearSVC(
-            C=0.5,
-            random_state=random_seed,
-            max_iter=2000,
-            dual='auto'
-        ),
-        'Logistic Regression (L2)': LogisticRegression(
-            C=0.5,
-            random_state=random_seed,
-            max_iter=2000
-        ),
-        'Ridge Classifier': RidgeClassifier(
-            alpha=2.0,
+            probability=True,
             random_state=random_seed
         ),
-        'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=11),
-        'Distance-Weighted KNN': KNeighborsClassifier(n_neighbors=11, weights='distance'),
-        'Gaussian Naive Bayes': GaussianNB(var_smoothing=1e-7),
-        'Decision Tree (Pruned)': DecisionTreeClassifier(
-            max_depth=4,
-            min_samples_split=16,
-            min_samples_leaf=8,
-            random_state=random_seed
-        ),
-        'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
-        'MLP Deep Neural Net (L2)': MLPClassifier(
-            hidden_layer_sizes=(64, 32),
-            alpha=0.1,
+        'MLP Neural Network (Fine-Tuned)': MLPClassifier(
+            hidden_layer_sizes=(128, 64),
+            activation='relu',
+            alpha=0.02,
             early_stopping=True,
             validation_fraction=0.15,
             random_state=random_seed,
-            max_iter=500
-        )
+            max_iter=800
+        ),
+
+        # --- Deep Learning Architectures (LSTM & Squeeze-and-Excitation) ---
+        'SE-TabularNet (Attention Block)': SETabularClassifier(
+            hidden_dim=128,
+            epochs=100,
+            batch_size=32,
+            lr=0.002,
+            weight_decay=1e-4,
+            dropout=0.3,
+            random_state=random_seed
+        ),
+        'Tabular LSTM (Bi-directional)': TabularLSTMClassifier(
+            embedding_dim=32,
+            hidden_dim=64,
+            epochs=100,
+            batch_size=32,
+            lr=0.003,
+            weight_decay=1e-4,
+            dropout=0.25,
+            random_state=random_seed
+        ),
+
+        # --- Advanced Complementary Ensembles ---
+        'Extra Trees Classifier': ExtraTreesClassifier(
+            n_estimators=200,
+            max_depth=6,
+            min_samples_split=8,
+            min_samples_leaf=4,
+            max_features='sqrt',
+            random_state=random_seed
+        ),
+        'Hist Gradient Boosting': HistGradientBoostingClassifier(
+            max_iter=100,
+            learning_rate=0.05,
+            max_depth=4,
+            min_samples_leaf=10,
+            l2_regularization=3.0,
+            random_state=random_seed
+        ),
+        'Decision Tree (Pruned)': DecisionTreeClassifier(
+            max_depth=5,
+            min_samples_split=8,
+            min_samples_leaf=4,
+            random_state=random_seed
+        ),
+        'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=9, weights='distance'),
+        'Gaussian Naive Bayes': GaussianNB(var_smoothing=1e-8)
     }
 
     if HAS_XGB:
-        classifier_portfolio['XGBoost (Reg)'] = xgb.XGBClassifier(
-            n_estimators=50,
-            learning_rate=0.05,
-            max_depth=3,
-            min_child_weight=6,
-            reg_lambda=5.0,
-            subsample=0.75,
+        classifier_portfolio['XGBoost Classifier'] = xgb.XGBClassifier(
+            n_estimators=150,
+            learning_rate=0.06,
+            max_depth=4,
+            min_child_weight=3,
+            reg_lambda=2.0,
+            subsample=0.85,
             random_state=random_seed,
             eval_metric='mlogloss',
             verbosity=0
         )
     if HAS_LGB:
-        classifier_portfolio['LightGBM (Reg)'] = lgb.LGBMClassifier(
-            n_estimators=50,
-            learning_rate=0.05,
-            max_depth=3,
-            num_leaves=8,
-            min_child_samples=16,
-            reg_lambda=5.0,
-            subsample=0.75,
+        classifier_portfolio['LightGBM Classifier'] = lgb.LGBMClassifier(
+            n_estimators=150,
+            learning_rate=0.06,
+            max_depth=5,
+            num_leaves=16,
+            min_child_samples=8,
+            reg_lambda=2.0,
+            subsample=0.85,
             random_state=random_seed,
             verbose=-1
         )
+
+    # Soft-Voting Meta-Ensemble combining diverse high-performing classifiers
+    voting_estimators = [
+        ('rf', classifier_portfolio['Random Forest (Fine-Tuned)']),
+        ('gb', classifier_portfolio['Gradient Boosting (Fine-Tuned)']),
+        ('svm', classifier_portfolio['SVM Classifier (RBF Kernel)']),
+        ('mlp', classifier_portfolio['MLP Neural Network (Fine-Tuned)'])
+    ]
+    if HAS_LGB:
+        voting_estimators.append(('lgb', classifier_portfolio['LightGBM Classifier']))
+
+    classifier_portfolio['Soft-Voting Meta-Ensemble'] = VotingClassifier(
+        estimators=voting_estimators,
+        voting='soft'
+    )
 
     return classifier_portfolio
 
@@ -188,7 +197,7 @@ def find_optimal_feature_scaler(
     for scaler_name, scaler_instance in candidate_scalers.items():
         scaled_matrix = scaler_instance.fit_transform(training_features)
         benchmark_probe = RandomForestClassifier(
-            n_estimators=80, max_depth=5, min_samples_leaf=8, random_state=random_seed
+            n_estimators=80, max_depth=6, min_samples_leaf=4, random_state=random_seed
         )
         cv_accuracy = cross_val_score(
             benchmark_probe, scaled_matrix, training_labels, cv=cv_splitter, scoring='accuracy'
@@ -212,7 +221,7 @@ class ModelBenchmarkingService:
         k_folds: int = 5
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Fit each regularized candidate model, evaluate k-fold cross validation on training data,
+        Fit each candidate model, evaluate k-fold cross validation on training data,
         and assess training accuracy, validation accuracy, and holdout test accuracy.
         """
         portfolio = build_candidate_classifier_suite(random_seed=random_seed)
