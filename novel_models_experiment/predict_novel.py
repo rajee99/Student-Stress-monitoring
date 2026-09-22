@@ -1,5 +1,5 @@
 """
-Interactive & Batch Inference Utility for Novel Non-Tree Models.
+Interactive & Batch Inference Utility for Novel Non-Tree Models with XAI & Prescriptive Recommendations.
 """
 
 from pathlib import Path
@@ -11,13 +11,16 @@ from architectures import (
     KernelManifoldAttentionClassifier,
     ResidualGatedFeatureClassifier
 )
+from xai_engine import StudentXAIEngine
 
 CURRENT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = CURRENT_DIR / "models"
 
 
-def predict_stress_level(student_data: dict) -> dict:
-    """Predict Stress Level using the trained Kernel Manifold Attention Classifier."""
+def predict_and_explain_student(student_data: dict, student_id: str = "Student-01") -> dict:
+    """
+    Predict Stress Level and generate XAI Dimension Decomposition with Prescriptive Interventions.
+    """
     model = joblib.load(MODELS_DIR / "dataset1_novel_champion.joblib")
     scaler = joblib.load(MODELS_DIR / "dataset1_scaler.joblib")
     features = joblib.load(MODELS_DIR / "dataset1_features.joblib")
@@ -46,22 +49,40 @@ def predict_stress_level(student_data: dict) -> dict:
     probs = model.predict_proba(scaled)[0]
     
     level_names = {0: "Low Stress", 1: "Medium Stress", 2: "High Stress"}
+    
+    # Extract model metric weights for XAI
+    model_weights = getattr(model, 'feature_importances_', np.ones(len(features)) / len(features))
+    
+    # Run XAI Engine
+    explanation = StudentXAIEngine.explain_student_prediction(
+        df_aligned.iloc[0],
+        pred_class,
+        model_weights,
+        features
+    )
+    
+    formatted_report = StudentXAIEngine.format_student_xai_report(student_id, explanation)
+    
     return {
+        'student_id': student_id,
         'predicted_level': int(pred_class),
         'label': level_names.get(int(pred_class), f"Level {pred_class}"),
-        'probabilities': {level_names.get(i, f"Level {i}"): float(prob) for i, prob in enumerate(probs)}
+        'probabilities': {level_names.get(i, f"Level {i}"): float(prob) for i, prob in enumerate(probs)},
+        'explanation': explanation,
+        'formatted_report': formatted_report
     }
 
 
 if __name__ == '__main__':
-    # Sample Test
-    sample_student = {
-        'anxiety_level': 18, 'self_esteem': 10, 'mental_health_history': 1, 'depression': 15,
-        'headache': 3, 'blood_pressure': 2, 'sleep_quality': 1, 'breathing_problem': 3,
-        'noise_level': 4, 'living_conditions': 2, 'safety': 2, 'basic_needs': 2,
-        'academic_performance': 2, 'study_load': 4, 'teacher_student_relationship': 2,
-        'future_career_concerns': 4, 'social_support': 1, 'peer_pressure': 4,
-        'extracurricular_activities': 4, 'bullying': 3
+    # Sample Test Student: Academic Stress Case
+    academic_stress_student = {
+        'anxiety_level': 14, 'self_esteem': 12, 'mental_health_history': 0, 'depression': 10,
+        'headache': 2, 'blood_pressure': 1, 'sleep_quality': 2, 'breathing_problem': 1,
+        'noise_level': 2, 'living_conditions': 3, 'safety': 3, 'basic_needs': 3,
+        'academic_performance': 1, 'study_load': 5, 'teacher_student_relationship': 1,
+        'future_career_concerns': 5, 'social_support': 3, 'peer_pressure': 3,
+        'extracurricular_activities': 4, 'bullying': 0
     }
-    res = predict_stress_level(sample_student)
-    print("Inference Test Result:", res)
+    
+    res = predict_and_explain_student(academic_stress_student, student_id="Student-Academic-Test")
+    print(res['formatted_report'])
