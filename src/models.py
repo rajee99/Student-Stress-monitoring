@@ -1,7 +1,14 @@
 """
-Classification Model Suite & Benchmarking Engine.
-Includes the Paper's exact classification algorithms, fine-tuned ensemble models,
-and Deep Learning architectures (LSTM & Squeeze-and-Excitation SE-Blocks).
+Paper Models Engine: Contains ONLY the 5 Classification Models discussed in the Research Paper:
+1. Logistic Regression
+2. Random Forest
+3. Gradient Boosting
+4. Support Vector Machine (RBF Kernel)
+5. Multilayer Perceptron (MLP Neural Network)
+
+Provides both:
+- Exact Paper Baseline Configurations (reproducing paper results)
+- Fine-Tuned Configurations (optimized to outperform the paper)
 """
 
 from typing import Dict, Any, Tuple
@@ -10,170 +17,103 @@ import pandas as pd
 
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-from sklearn.ensemble import (
-    RandomForestClassifier,
-    ExtraTreesClassifier,
-    GradientBoostingClassifier,
-    HistGradientBoostingClassifier,
-    AdaBoostClassifier,
-    BaggingClassifier,
-    VotingClassifier
-)
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, f1_score
 
-from src.dl_models import SETabularClassifier, TabularLSTMClassifier
 
-# Optional gradient boosted tree libraries
-try:
-    import xgboost as xgb
-    HAS_XGB = True
-except ImportError:
-    HAS_XGB = False
-
-try:
-    import lightgbm as lgb
-    HAS_LGB = True
-except ImportError:
-    HAS_LGB = False
-
-
-def build_candidate_classifier_suite(random_seed: int = 42) -> Dict[str, Any]:
+def get_paper_baseline_models(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate classification algorithms including:
-    1. Paper's exact classification models (fine-tuned & regularized)
-    2. Deep Learning models (LSTM & SE-Tabular Network)
-    3. High-performance tree & voting ensembles
+    Instantiate the exact 5 classification models using the default hyperparameters
+    specified in Table 3 (p. 8) of the published research paper.
     """
-    classifier_portfolio = {
-        # --- The Paper's Exact Classification Models (Fine-Tuned) ---
+    return {
+        'Logistic Regression (Paper Baseline)': LogisticRegression(
+            penalty='l2',
+            C=1.0,
+            solver='lbfgs',
+            max_iter=1000,
+            random_state=random_seed
+        ),
+        'Random Forest (Paper Baseline)': RandomForestClassifier(
+            n_estimators=100,
+            criterion='gini',
+            max_features='sqrt',
+            random_state=random_seed
+        ),
+        'Gradient Boosting (Paper Baseline)': GradientBoostingClassifier(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=3,
+            random_state=random_seed
+        ),
+        'SVM RBF (Paper Baseline)': SVC(
+            C=1.0,
+            kernel='rbf',
+            gamma='scale',
+            probability=True,
+            random_state=random_seed
+        ),
+        'MLP Neural Net (Paper Baseline)': MLPClassifier(
+            hidden_layer_sizes=(100, 50),
+            activation='relu',
+            alpha=0.001,
+            max_iter=500,
+            random_state=random_seed
+        )
+    }
+
+
+def get_finetuned_models(random_seed: int = 42) -> Dict[str, Any]:
+    """
+    Instantiate the exact 5 classification models fine-tuned with optimized hyperparameters,
+    bounded depth, leaf sample constraints, and anti-overfitting regularization to beat the paper.
+    """
+    return {
+        'Logistic Regression (Fine-Tuned)': LogisticRegression(
+            penalty='l2',
+            C=0.6,
+            solver='lbfgs',
+            max_iter=2000,
+            random_state=random_seed
+        ),
         'Random Forest (Fine-Tuned)': RandomForestClassifier(
-            n_estimators=200,
-            max_depth=6,
-            min_samples_split=8,
-            min_samples_leaf=4,
+            n_estimators=250,
+            max_depth=7,
+            min_samples_split=6,
+            min_samples_leaf=3,
             max_features='sqrt',
             random_state=random_seed
         ),
         'Gradient Boosting (Fine-Tuned)': GradientBoostingClassifier(
-            n_estimators=100,
-            learning_rate=0.05,
-            max_depth=3,
-            min_samples_split=10,
-            min_samples_leaf=6,
-            subsample=0.80,
+            n_estimators=120,
+            learning_rate=0.06,
+            max_depth=4,
+            min_samples_split=8,
+            min_samples_leaf=4,
+            subsample=0.85,
             random_state=random_seed
         ),
-        'SVM Classifier (RBF Kernel)': SVC(
-            C=1.2,
-            gamma='scale',
+        'SVM RBF (Fine-Tuned)': SVC(
+            C=1.5,
             kernel='rbf',
+            gamma='scale',
             probability=True,
             random_state=random_seed
         ),
-        'MLP Neural Network (Fine-Tuned)': MLPClassifier(
-            hidden_layer_sizes=(128, 64),
+        'MLP Neural Net (Fine-Tuned)': MLPClassifier(
+            hidden_layer_sizes=(100, 50),
             activation='relu',
-            alpha=0.02,
+            alpha=0.001,
+            learning_rate_init=0.002,
             early_stopping=True,
             validation_fraction=0.15,
-            random_state=random_seed,
-            max_iter=800
-        ),
-
-        # --- Deep Learning Architectures (LSTM & Squeeze-and-Excitation) ---
-        'SE-TabularNet (Attention Block)': SETabularClassifier(
-            hidden_dim=128,
-            epochs=100,
-            batch_size=32,
-            lr=0.002,
-            weight_decay=1e-4,
-            dropout=0.3,
+            max_iter=1000,
             random_state=random_seed
-        ),
-        'Tabular LSTM (Bi-directional)': TabularLSTMClassifier(
-            embedding_dim=32,
-            hidden_dim=64,
-            epochs=100,
-            batch_size=32,
-            lr=0.003,
-            weight_decay=1e-4,
-            dropout=0.25,
-            random_state=random_seed
-        ),
-
-        # --- Advanced Complementary Ensembles ---
-        'Extra Trees Classifier': ExtraTreesClassifier(
-            n_estimators=200,
-            max_depth=6,
-            min_samples_split=8,
-            min_samples_leaf=4,
-            max_features='sqrt',
-            random_state=random_seed
-        ),
-        'Hist Gradient Boosting': HistGradientBoostingClassifier(
-            max_iter=100,
-            learning_rate=0.05,
-            max_depth=4,
-            min_samples_leaf=10,
-            l2_regularization=3.0,
-            random_state=random_seed
-        ),
-        'Decision Tree (Pruned)': DecisionTreeClassifier(
-            max_depth=5,
-            min_samples_split=8,
-            min_samples_leaf=4,
-            random_state=random_seed
-        ),
-        'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=9, weights='distance'),
-        'Gaussian Naive Bayes': GaussianNB(var_smoothing=1e-8)
+        )
     }
-
-    if HAS_XGB:
-        classifier_portfolio['XGBoost Classifier'] = xgb.XGBClassifier(
-            n_estimators=150,
-            learning_rate=0.06,
-            max_depth=4,
-            min_child_weight=3,
-            reg_lambda=2.0,
-            subsample=0.85,
-            random_state=random_seed,
-            eval_metric='mlogloss',
-            verbosity=0
-        )
-    if HAS_LGB:
-        classifier_portfolio['LightGBM Classifier'] = lgb.LGBMClassifier(
-            n_estimators=150,
-            learning_rate=0.06,
-            max_depth=5,
-            num_leaves=16,
-            min_child_samples=8,
-            reg_lambda=2.0,
-            subsample=0.85,
-            random_state=random_seed,
-            verbose=-1
-        )
-
-    # Soft-Voting Meta-Ensemble combining diverse high-performing classifiers
-    voting_estimators = [
-        ('rf', classifier_portfolio['Random Forest (Fine-Tuned)']),
-        ('gb', classifier_portfolio['Gradient Boosting (Fine-Tuned)']),
-        ('svm', classifier_portfolio['SVM Classifier (RBF Kernel)']),
-        ('mlp', classifier_portfolio['MLP Neural Network (Fine-Tuned)'])
-    ]
-    if HAS_LGB:
-        voting_estimators.append(('lgb', classifier_portfolio['LightGBM Classifier']))
-
-    classifier_portfolio['Soft-Voting Meta-Ensemble'] = VotingClassifier(
-        estimators=voting_estimators,
-        voting='soft'
-    )
-
-    return classifier_portfolio
 
 
 def find_optimal_feature_scaler(
@@ -209,10 +149,11 @@ def find_optimal_feature_scaler(
 
 
 class ModelBenchmarkingService:
-    """Executes cross-validation and out-of-sample evaluations across the candidate classifier suite."""
+    """Executes cross-validation and out-of-sample evaluations across the 5 paper models."""
 
     @staticmethod
-    def run_portfolio_benchmark(
+    def evaluate_model_dictionary(
+        model_dict: Dict[str, Any],
         scaled_train_x: np.ndarray,
         train_y: np.ndarray,
         scaled_test_x: np.ndarray,
@@ -220,15 +161,11 @@ class ModelBenchmarkingService:
         random_seed: int = 42,
         k_folds: int = 5
     ) -> Dict[str, Dict[str, Any]]:
-        """
-        Fit each candidate model, evaluate k-fold cross validation on training data,
-        and assess training accuracy, validation accuracy, and holdout test accuracy.
-        """
-        portfolio = build_candidate_classifier_suite(random_seed=random_seed)
+        """Evaluate a dictionary of models and return detailed metric records."""
         cv_strategy = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
         benchmark_summary = {}
 
-        for model_name, estimator in portfolio.items():
+        for model_name, estimator in model_dict.items():
             try:
                 # 1. Validation Accuracy via K-Fold Cross Validation
                 cv_scores = cross_val_score(
