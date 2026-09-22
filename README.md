@@ -27,9 +27,4 @@ python predict.py --dataset 2
 
 ---
 
-## Results Summary
 
-| Task | Top Classifier | Scaler | Test Accuracy | Weighted F1 |
-| :--- | :--- | :--- | :--- | :--- |
-| **Dataset 1 (Stress Level)** | Random Forest | `StandardScaler` | **90.00%** | **0.9000** |
-| **Dataset 2 (Stress Type)** | LightGBM | `MinMaxScaler` | **99.39%** | **0.9937** |
