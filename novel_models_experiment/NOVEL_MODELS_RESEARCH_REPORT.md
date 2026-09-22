@@ -35,32 +35,129 @@ We developed two novel architectures from first principles:
 
 ---
 
-### Detailed Breakdown of Our Novel Contributions
-
-### Novelty 1: Geometric Metric Prototype Manifold Attention (KMAC)
-Conventional nearest-neighbor or centroid classifiers use fixed Euclidean metrics, treating all survey features equally. In contrast, KMAC:
-1. Discovers $K$ sub-cluster centroids per class $\mathcal{P}_c = \{\mathbf{c}_{c, 1}, \dots, \mathbf{c}_{c, K}\}$, capturing heterogeneous student sub-types.
-2. Learns a continuous diagonal precision matrix $\mathbf{W} = \text{diag}(\exp(\boldsymbol{\theta}))$ via Adam mini-batch optimization to automatically amplify high-signal stress markers.
-3. Computes a hybrid distance $D_k(\mathbf{x}) = \alpha D_{L2} + (1-\alpha) D_{L1}$ combining smooth RBF curvature with robust Laplacian L1 resistance to outliers.
-4. Uses temperature-scaled softmax attention to compute continuous posterior class probabilities:
-   $$P(y = c \mid \mathbf{x}) = \frac{\sum_{k \in \mathcal{P}_c} \exp\left(- \frac{D_k(\mathbf{x})}{\tau} + \ln \pi_k\right)}{\sum_{j \in \mathcal{C}} \sum_{k \in \mathcal{P}_j} \exp\left(- \frac{D_k(\mathbf{x})}{\tau} + \ln \pi_k\right)}$$
-
-### Novelty 2: Hyperspherical Cosine Margin Tabular Network (RGFN)
-Conventional deep neural networks for tabular data use standard unconstrained linear projections $\mathbf{W}^T \mathbf{z} + b$, which suffer from vector norm disparities and gradient saturation. In contrast, RGFN:
-1. Employs Feature-Gating Units (FGU): $\mathbf{u} = \text{SiLU}(\mathbf{W}_s \text{LN}(\mathbf{h})) \odot \sigma(\mathbf{W}_g \text{LN}(\mathbf{h}))$ to dynamically suppress irrelevant survey noise.
-2. Integrates Squeeze-and-Excitation (SE) channel recalibration across latent representations.
-3. Classifies via scale-invariant Hyperspherical Cosine Margin Softmax on $\mathbb{S}^{d-1}$:
-   $$\text{Logit}_c(\mathbf{x}) = s \cdot \left( \frac{\mathbf{z}}{\|\mathbf{z}\|_2} \cdot \frac{\mathbf{w}_c}{\|\mathbf{w}_c\|_2} \right)$$
-   This forces compact intra-class angular clustering and maximal inter-class angular margins.
-
-### Novelty 3: Actionable Prescriptive Intervention Engine
-Unlike systems that only output a risk score, our pipeline bridges machine learning to student support services:
-- Decomposes student risk across the **5 Core Stress Dimensions** (Academic, Psychological, Physical, Environmental, Social).
-- Automatically triggers targeted prescriptive interventions based on the dominant stress dimension and severity level.
+## 3. How the Two Custom Models Work: Simple Explanations & Comprehensive Architecture Diagrams
 
 ---
 
-## 3. Mathematical Formulations of Novel Architectures
+### A. Model 1: `KernelManifoldAttentionClassifier` (KMAC)
+
+#### Simple Intuitive Explanation:
+Imagine you want to know if a new student is experiencing Low, Medium, or High stress based on their survey responses. 
+
+1. **Student "Landmark Personas" (Multi-Prototypes):**
+   Not all stressed students look the same. One student might have high academic pressure but good sleep; another might have severe insomnia and anxiety. KMAC creates **multiple landmark personas (sub-cluster prototypes)** for each stress category instead of assuming one average profile fits everyone.
+2. **The "Smart Distance Magnifier" (Metric Learning):**
+   Standard distance formulas treat every survey question equally. KMAC learns a dynamic multiplier ($\mathbf{w} = \exp(\boldsymbol{\theta})$) through Adam optimization that magnifies crucial psychological signals (like anxiety and sleep) while ignoring background noise.
+3. **Dual-Kernel Soft Spotlight (Hybrid RBF-Laplacian Attention):**
+   KMAC calculates how close the student is to every landmark using a combination of smooth spherical distance (RBF) and sharp diamond distance (Laplacian). A temperature dial ($\tau$) turns these distances into calibrated percentage probabilities across Low, Medium, and High stress.
+
+#### Comprehensive Architecture Diagram (KMAC):
+
+```mermaid
+flowchart TD
+    subgraph Input_Stage ["1. Input Representation"]
+        A["New Student Survey Vector<br>x = [Anxiety, Sleep, Study Load, ...]"]
+    end
+
+    subgraph Prototype_Bank ["2. Multi-Prototype Manifold Bank"]
+        P0["Low Stress Prototypes<br>c_0,1 ... c_0,K"]
+        P1["Medium Stress Prototypes<br>c_1,1 ... c_1,K"]
+        P2["High Stress Prototypes<br>c_2,1 ... c_2,K"]
+    end
+
+    subgraph Metric_Engine ["3. Metric Learning & Hybrid Distance"]
+        W["Learned Precision Vector<br>w = exp(θ) via Adam Optimizer"]
+        Diff["Feature Difference<br>Δ = x - c_k"]
+        L2["RBF L2 Distance<br>Σ w_i · (x_i - c_k,i)²"]
+        L1["Laplacian L1 Distance<br>Σ √w_i · |x_i - c_k,i|"]
+        Hybrid["Hybrid Metric Distance<br>D_k(x) = α · L2 + (1-α) · L1"]
+    end
+
+    subgraph Attention_Softmax ["4. Temperature Attention & Aggregation"]
+        Attn["Prototype Log-Attention<br>z_k = -D_k(x) / τ + ln(π_k)"]
+        Pool["LogSumExp Class Pooling<br>Combines prototype affinities per class"]
+        Softmax["Softmax Normalization<br>P(y = c | x)"]
+    end
+
+    subgraph Output_Stage ["5. Diagnostic Output"]
+        Pred["Predicted Stress Level & Probabilities"]
+        Attr["Learned Metric Feature Importance"]
+    end
+
+    A --> Diff
+    Prototype_Bank --> Diff
+    W --> L2
+    W --> L1
+    Diff --> L2
+    Diff --> L1
+    L2 --> Hybrid
+    L1 --> Hybrid
+    Hybrid --> Attn
+    Attn --> Pool
+    Pool --> Softmax
+    Softmax --> Pred
+    W --> Attr
+```
+
+---
+
+### B. Model 2: `ResidualGatedFeatureClassifier` (RGFN)
+
+#### Simple Intuitive Explanation:
+Tabular survey data is notoriously noisy. Standard neural networks often struggle because unconstrained linear layers can overreact to large feature numbers. RGFN solves this with three deep learning mechanisms:
+
+1. **Noise-Canceling Feature Gates (GLU):**
+   Like noise-canceling headphones, each layer has two pathways: a *signal pathway* and a *gate pathway*. The gate calculates a multiplier between $0.0$ and $1.0$. If a survey feature is irrelevant, the gate closes and mutes the noise.
+2. **Channel Recalibration (Squeeze-and-Excitation):**
+   Across the 128 hidden channels, the network checks which combinations of features (e.g. high workload combined with poor sleep) are most critical, dynamically boosting their signal strength.
+3. **Compass Direction over Distance (Hyperspherical Cosine Head):**
+   Standard neural networks make decisions based on vector length (which can explode during training). RGFN maps both the student's hidden embedding $\mathbf{z}$ and the target class centers $\mathbf{w}_c$ onto the surface of a **unit sphere ($\mathbb{S}^{d-1}$)**. It classifies the student based purely on **angular direction ($\cos \theta$)**, ensuring rock-solid numerical stability.
+
+#### Comprehensive Architecture Diagram (RGFN):
+
+```mermaid
+flowchart TD
+    subgraph Input_Layer ["1. Input Preconditioning"]
+        Inp["Student Feature Vector (x)"] --> LinearIn["Input Projection: Linear(d, 128)"]
+        LinearIn --> LN0["Layer Normalization + SiLU Activation"]
+    end
+
+    subgraph Gated_Residual_Tower ["2. Deep Gated Residual Tower (3x Blocks)"]
+        LN0 --> Block1["Residual Gated Block 1"]
+        
+        subgraph Inside_Block ["Inside Each Gated Block"]
+            B_LN["LayerNorm(h)"] --> B_Signal["Signal: SiLU(W_s · h + b_s)"]
+            B_LN --> B_Gate["Gate: Sigmoid(W_g · h + b_g)"]
+            B_Signal --> B_Mult["Gated Linear Unit: u = Signal ⊙ Gate"]
+            B_Gate --> B_Mult
+            B_Mult --> B_SE["Squeeze-and-Excitation Recalibration<br>e = σ(W_2 · ReLU(W_1 · u))"]
+            B_SE --> B_Drop["Dropout(0.15) + Linear Projection"]
+            B_Drop --> B_Add["Residual Skip Connection: h_next = h + F(u ⊙ e)"]
+        end
+        
+        Block1 --> Block2["Residual Gated Block 2"]
+        Block2 --> Block3["Residual Gated Block 3"]
+        Block3 --> FinalLN["Final Layer Normalization"]
+    end
+
+    subgraph Hyperspherical_Head ["3. Hyperspherical Cosine Margin Head"]
+        FinalLN --> NormZ["Normalize Student Latent Vector onto Sphere<br>z_hat = z / ||z||_2"]
+        NormW["Normalize Class Prototype Weights onto Sphere<br>w_hat_c = w_c / ||w_c||_2"]
+        
+        NormZ --> CosSim["Cosine Similarity Angle Calculation<br>cos(θ) = z_hat · w_hat_c"]
+        NormW --> CosSim
+        CosSim --> Scale["Scale Logits: s · cos(θ) (Scale s = 18.0)"]
+        Scale --> Probs["Softmax Probabilities: P(Eustress, Distress, No Stress)"]
+    end
+
+    subgraph Explanation_Head ["4. Gradient Sensitivity XAI"]
+        Scale --> GradXAI["Input Gradient Sensitivity Attribution<br>E[|∂Logit / ∂x|]"]
+    end
+```
+
+---
+
+## 4. Mathematical Formulations of Novel Architectures
 
 ### Architecture 1: Kernel Manifold Attention Classifier (KMAC)
 1. **Multi-Prototype Manifold Construction:**
@@ -85,7 +182,7 @@ Unlike systems that only output a risk score, our pipeline bridges machine learn
 
 ---
 
-## 4. Explainable AI (XAI) & Prescriptive Recommendation Engine
+## 5. Explainable AI (XAI) & Prescriptive Recommendation Engine
 
 ### A. The 5 Stress Dimensions:
 1. **Academic Stress:** `study_load`, `academic_performance`, `teacher_student_relationship`, `future_career_concerns`, `academic_pressure_ratio`
@@ -107,7 +204,7 @@ Unlike systems that only output a risk score, our pipeline bridges machine learn
 
 ---
 
-## 5. Empirical Evaluation Results
+## 6. Empirical Evaluation Results
 
 ### Table 1: Dataset 1 (Stress Level) - 100% Unseen Test Evaluation (N = 220 Students)
 | Classifier Name | Paradigm | 5-Fold CV Acc (%) | Unseen Test Acc (%) | Unseen Weighted F1 | Unseen Precision | Unseen Recall | Correct / Total |
@@ -129,7 +226,7 @@ Unlike systems that only output a risk score, our pipeline bridges machine learn
 
 ---
 
-## 6. Visual Artifacts Generated
+## 7. Visual Artifacts Generated
 
 1. `outputs/figures/unseen_accuracy_comparison.png` - Unseen test accuracy bar chart comparison across all candidate models.
 2. `outputs/figures/confusion_matrices.png` - Normalized confusion matrix heatmaps on unseen test data for both datasets.
@@ -138,7 +235,7 @@ Unlike systems that only output a risk score, our pipeline bridges machine learn
 
 ---
 
-## 7. Summary & Conclusions
+## 8. Summary & Conclusions
 
 1. **High Accuracy without Trees/Regressions:** Kernel Manifold Attention (KMAC) and Residual Gated FeatureNet (RGFN) achieved **90.45%** and **96.34%** out-of-sample accuracy, surpassing standard baseline models.
 2. **Actionable Clinical Utility:** The non-tree pipeline successfully connects continuous feature metric attributions to personalized, actionable student welfare recommendations.
