@@ -1,14 +1,17 @@
 """
-Classification Models Engine (Zero Regression Algorithms).
-Evaluates the core non-linear classification models discussed in the Research Paper:
-1. Random Forest Classifier
-2. Gradient Boosting Classifier
-3. Support Vector Machine Classifier (RBF Kernel)
-4. Multilayer Perceptron (MLP Neural Network)
+Classification Models Engine (Zero Trees, Zero Regressions).
 
-Provides:
-- Paper Baseline Configurations (default parameters)
-- Fine-Tuned Configurations (optimized for peak accuracy & anti-overfitting)
+Features:
+1. Standard Non-Tree, Non-Regression Baselines:
+   - Support Vector Machine (RBF Kernel)
+   - Multilayer Perceptron (MLP Neural Net)
+2. Novel Custom Developed Classifiers:
+   - KernelManifoldAttentionClassifier (KMAC - Metric Learning & Prototype Attention)
+   - ResidualGatedFeatureClassifier (RGFN - Tabular Squeeze-and-Excitation & Hyperspherical Cosine Head)
+
+Strict Constraints Adhered To:
+- ZERO Tree-based algorithms (No Random Forest, Decision Trees, Gradient Boosting, XGBoost, etc.)
+- ZERO Regression algorithms (No Logistic Regression, Linear Regression, Ridge, Lasso, etc.)
 """
 
 from typing import Dict, Any, Tuple
@@ -17,38 +20,29 @@ import pandas as pd
 
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, f1_score
 
+from src.novel_models import (
+    KernelManifoldAttentionClassifier,
+    ResidualGatedFeatureClassifier
+)
 
-def get_paper_baseline_models(random_seed: int = 42) -> Dict[str, Any]:
+
+def get_non_tree_baseline_models(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate the core classification models using the default hyperparameters
-    specified in Table 3 of the published research paper.
+    Standard non-tree, non-regression baseline classification models.
     """
     return {
-        'Random Forest (Paper Baseline)': RandomForestClassifier(
-            n_estimators=100,
-            criterion='gini',
-            max_features='sqrt',
-            random_state=random_seed
-        ),
-        'Gradient Boosting (Paper Baseline)': GradientBoostingClassifier(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=3,
-            random_state=random_seed
-        ),
-        'SVM RBF (Paper Baseline)': SVC(
+        'SVM RBF (Baseline)': SVC(
             C=1.0,
             kernel='rbf',
             gamma='scale',
             probability=True,
             random_state=random_seed
         ),
-        'MLP Neural Net (Paper Baseline)': MLPClassifier(
+        'MLP Neural Net (Baseline)': MLPClassifier(
             hidden_layer_sizes=(100, 50),
             activation='relu',
             alpha=0.001,
@@ -58,44 +52,47 @@ def get_paper_baseline_models(random_seed: int = 42) -> Dict[str, Any]:
     }
 
 
-def get_finetuned_models(random_seed: int = 42) -> Dict[str, Any]:
+def get_novel_non_tree_models(random_seed: int = 42) -> Dict[str, Any]:
     """
-    Instantiate fine-tuned classification models with optimized depth, leaf constraints,
-    and anti-overfitting regularization.
+    Novel custom-developed Machine Learning classification models
+    (Strictly Zero Trees, Zero Regressions).
     """
     return {
-        'Random Forest (Fine-Tuned)': RandomForestClassifier(
-            n_estimators=250,
-            max_depth=7,
-            min_samples_split=6,
-            min_samples_leaf=3,
-            max_features='sqrt',
-            random_state=random_seed
-        ),
-        'Gradient Boosting (Fine-Tuned)': GradientBoostingClassifier(
-            n_estimators=120,
-            learning_rate=0.06,
-            max_depth=3,
-            min_samples_split=8,
-            min_samples_leaf=4,
-            subsample=0.85,
-            random_state=random_seed
-        ),
-        'SVM RBF (Fine-Tuned)': SVC(
+        'SVM RBF (Kernel Benchmark)': SVC(
             C=1.5,
             kernel='rbf',
             gamma='scale',
             probability=True,
             random_state=random_seed
         ),
-        'MLP Neural Net (Fine-Tuned)': MLPClassifier(
-            hidden_layer_sizes=(100, 50),
+        'MLP Neural Net (Deep MLP)': MLPClassifier(
+            hidden_layer_sizes=(128, 64),
             activation='relu',
             alpha=0.001,
             learning_rate_init=0.002,
             early_stopping=True,
             validation_fraction=0.15,
             max_iter=1000,
+            random_state=random_seed
+        ),
+        'Kernel Manifold Attention (Novel Custom 1)': KernelManifoldAttentionClassifier(
+            prototypes_per_class=4,
+            temperature=0.45,
+            kernel_hybrid_alpha=0.65,
+            learning_rate=0.04,
+            max_iter=250,
+            l2_regularization=1e-4,
+            random_state=random_seed
+        ),
+        'Residual Gated FeatureNet (Novel Custom 2)': ResidualGatedFeatureClassifier(
+            hidden_dim=128,
+            num_blocks=3,
+            dropout=0.15,
+            cos_scale=18.0,
+            learning_rate=0.003,
+            weight_decay=1e-4,
+            batch_size=32,
+            epochs=140,
             random_state=random_seed
         )
     }
@@ -108,7 +105,8 @@ def find_optimal_feature_scaler(
     cv_partitions: int = 5
 ) -> Tuple[str, Any]:
     """
-    Select the feature normalization technique yielding top baseline cross-validation score.
+    Select the feature normalization technique yielding top baseline cross-validation score
+    using a non-tree probe (RBF Kernel Support Vector Classifier).
     """
     candidate_scalers = {
         'StandardScaler': StandardScaler(),
@@ -121,9 +119,7 @@ def find_optimal_feature_scaler(
 
     for scaler_name, scaler_instance in candidate_scalers.items():
         scaled_matrix = scaler_instance.fit_transform(training_features)
-        benchmark_probe = RandomForestClassifier(
-            n_estimators=80, max_depth=6, min_samples_leaf=4, random_state=random_seed
-        )
+        benchmark_probe = SVC(C=1.0, kernel='rbf', random_state=random_seed)
         cv_accuracy = cross_val_score(
             benchmark_probe, scaled_matrix, training_labels, cv=cv_splitter, scoring='accuracy'
         ).mean()
@@ -134,7 +130,7 @@ def find_optimal_feature_scaler(
 
 
 class ModelBenchmarkingService:
-    """Executes cross-validation and out-of-sample evaluations across the candidate classifiers."""
+    """Executes cross-validation and out-of-sample evaluations across candidate classifiers."""
 
     @staticmethod
     def evaluate_model_dictionary(
